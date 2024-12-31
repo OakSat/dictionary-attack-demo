@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictionary Attack Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e9ecef;
+            white-space: pre-wrap;
+        }
+
+        #log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-family: monospace;
+            overflow-y: auto;
+            max-height: 200px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Login Page</h1>
+
+    <form id="login-form">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username"><br><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password"><br><br>
+        <button type="button" onclick="login()">Login</button>
+    </form>
+    <p id="message"></p>
+    <script>
+        async function login() {
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const response = await fetch("/api/login", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({username, password})
+            });
+
+            const data = await response.json();
+            document.getElementById("message").innerText = data.message;
+
+            if (data.success) {
+                setTimeout(() => {
+                    window.location.href = `/welcome/${username}`;
+                }, 2000); // 2-second delay
+            }
+
+        }
+    </script>
+    <h2>Live Dictionary Attack Demo</h2>
+    <p>Click the button below to start a dictionary attack simulation. Logs and current status will appear below.</p>
+    <button onclick="startAttack()">Run Dictionary Attack</button>
+
+    <div id="log">Logs will appear here...</div>
+</div>
+
+<script>
+    function startAttack() {
+        const logDiv = document.getElementById("log");
+        const currentUserSpan = document.getElementById("username");
+        const currentPasswordSpan = document.getElementById("password");
+        logDiv.textContent = "Starting the dictionary attack...\n";
+
+        const eventSource = new EventSource("/start_attack");
+        eventSource.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+
+            // Update current username and password
+            currentUserSpan.textContent = data.username || "N/A";
+            currentPasswordSpan.textContent = data.password || "N/A";
+            document.getElementById("password").value = currentPasswordSpan.textContent;
+            document.getElementById("username").value = currentUserSpan.textContent;
+
+            // Append log message
+            logDiv.textContent += data.message + "\n";
+            if (data.message.startsWith('[SUCCESS]')) {
+                document.getElementById("message").innerText = 'Login successful'
+                eventSource.close();
+
+                setTimeout(() => {
+                    window.location.href = `/welcome/${data.username}`;
+                }, 2000); // 2-second delay
+            } else {
+                document.getElementById("message").innerText = 'Invalid credentials'
+            }
+            logDiv.scrollTop = logDiv.scrollHeight; // Auto-scroll to the bottom
+        };
+
+        eventSource.onerror = function () {
+            logDiv.textContent += "Error occurred. Stopping log stream.\n";
+            eventSource.close();
+        };
+    }
+</script>
+</body>
+</html>
